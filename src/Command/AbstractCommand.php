@@ -118,7 +118,7 @@ class AbstractCommand extends Command
             $this->line();
             $this->style->error('Too many wrong attempts. Login into Jira manually and complete the captcha.');
 
-            exit;
+            exit(1);
         }
 
         throw $e;
@@ -139,10 +139,12 @@ class AbstractCommand extends Command
         }
 
         if ($readInArray) {
-            return file($fullPath);
-        } else {
-            return file_get_contents($fullPath);
+            $content = file_get_contents($fullPath);
+
+            return explode("\n", $content);
         }
+
+        return file_get_contents($fullPath);
     }
 
     protected function enterPassword()

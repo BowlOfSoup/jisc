@@ -15,6 +15,7 @@ use Symfony\Component\Finder\Finder;
 class CreateCommand extends AbstractCommand
 {
     const OPTION_SINGLE_TASK = 'task';
+    const CONFIRMATION_REGEX_YES = '/^(y|j)/i';
 
     /** @var string */
     private $fullCreateUri = '/rest/api/2/issue/';
@@ -72,6 +73,8 @@ class CreateCommand extends AbstractCommand
                 );
 
                 $subTasks = $this->getFileContent(__DIR__ . static::DIR_RESOURCES . static::DIR_SETS . $taskSet, static::FILE_READ_ARRAY);
+                $subTasks = $this->filterSubTasks($subTasks);
+                $this->line();
             }
         }
 
@@ -82,7 +85,7 @@ class CreateCommand extends AbstractCommand
         $this->style->success('Sub-task(s) created');
 
         if ($hasOptionForSingleTask ||
-            !$this->helper->ask($this->input, $this->output, new ConfirmationQuestion('Create more tasks? [y/N]: ', false, '/^(y|j)/i'))
+            !$this->helper->ask($this->input, $this->output, new ConfirmationQuestion('Create more tasks? [y/N]: ', false, static::CONFIRMATION_REGEX_YES))
         ) {
             return;
         }
@@ -105,6 +108,18 @@ class CreateCommand extends AbstractCommand
         }
 
         return $taskFiles;
+    }
+
+    /**
+     * @param array $subTasks
+     *
+     * @return array
+     */
+    private function filterSubTasks(array $subTasks)
+    {
+        return array_filter($subTasks, function($subTask) {
+            return $this->helper->ask($this->input, $this->output, new ConfirmationQuestion($subTask . ' [Y/n]: ', true, static::CONFIRMATION_REGEX_YES));
+        });
     }
 
     /**
@@ -150,8 +165,6 @@ class CreateCommand extends AbstractCommand
     private function preparePayload(string $subTaskString): string
     {
         $payload = $this->getFileContent(__DIR__ . static::DIR_RESOURCES . static::DIR_TEMPLATES . 'createSubTaskPayload.json');
-
-        $subTaskString = preg_replace('/\r|\n/', '', $subTaskString);
 
         $payload = str_replace('%PK%', $this->input->getOption(static::OPTION_PROJECT_KEY), $payload);
         $payload = str_replace('%PARENTSTORY%', $this->input->getOption(static::OPTION_STORY), $payload);
