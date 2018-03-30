@@ -15,6 +15,10 @@ use Symfony\Component\Finder\Finder;
 class CreateCommand extends AbstractCommand
 {
     const OPTION_SINGLE_TASK = 'task';
+    const OPTION_FILE_SET = 'file';
+
+    const DIR_USER_SETS = '/.jisc/';
+
     const CONFIRMATION_REGEX_YES = '/^(y|j)/i';
 
     /** @var string */
@@ -31,6 +35,7 @@ class CreateCommand extends AbstractCommand
 
         $this
             ->addOption(static::OPTION_SINGLE_TASK, 't', InputOption::VALUE_OPTIONAL, 'Add this single task to given story.')
+            ->addOption(static::OPTION_FILE_SET, 'f', InputOption::VALUE_OPTIONAL, '(Only) the filename for a file containing sub-tasks with one task per line.')
         ;
     }
 
@@ -55,13 +60,24 @@ class CreateCommand extends AbstractCommand
 
         $hasOptionForSingleTask = (null !== $this->input->getOption(static::OPTION_SINGLE_TASK));
         if ($hasOptionForSingleTask) {
+            // Handle a single task.
             $subTasks[] = $this->input->getOption(static::OPTION_SINGLE_TASK);
         } else {
-            $this->line();
-            $question = new ChoiceQuestion('Select a task set: ', $this->getTaskFiles(), 0);
-            $question->setMultiselect(true);
+            $taskSets = array();
 
-            $taskSets = $this->helper->ask($this->input, $this->output, $question);
+            $taskSetFileFromOption = $this->input->getOption(static::OPTION_FILE_SET);
+            if (null !== $taskSetFileFromOption) {
+                // A given file with a set of tasks.
+                $taskSets[] = $taskSetFileFromOption;
+            } else {
+                $this->line();
+
+                // Choose a file with a set of tasks.
+                $question = new ChoiceQuestion('Select a task set: ', $this->getTaskFiles(), 0);
+                $question->setMultiselect(true);
+
+                $taskSets = $this->helper->ask($this->input, $this->output, $question);
+            }
 
             foreach ($taskSets as $taskSet) {
                 $this->style->writeln(
@@ -72,7 +88,12 @@ class CreateCommand extends AbstractCommand
                     )
                 );
 
-                $subTasks = $this->getFileContent(__DIR__ . static::DIR_RESOURCES . static::DIR_SETS . $taskSet, static::FILE_READ_ARRAY);
+                $defaultTaskSetDir = __DIR__ . static::DIR_RESOURCES . static::DIR_SETS;
+                if (file_exists($_SERVER['HOME'] . static::DIR_USER_SETS . $taskSet)) {
+                    $defaultTaskSetDir = $_SERVER['HOME'] . static::DIR_USER_SETS;
+                }
+
+                $subTasks = $this->getFileContent($defaultTaskSetDir . $taskSet, static::FILE_READ_ARRAY);
                 $subTasks = $this->filterSubTasks($subTasks);
                 $this->line();
             }
@@ -118,6 +139,10 @@ class CreateCommand extends AbstractCommand
     private function filterSubTasks(array $subTasks)
     {
         return array_filter($subTasks, function($subTask) {
+            if (empty($subTask)) {
+                return false;
+            }
+
             return $this->helper->ask($this->input, $this->output, new ConfirmationQuestion($subTask . ' [Y/n]: ', true, static::CONFIRMATION_REGEX_YES));
         });
     }
