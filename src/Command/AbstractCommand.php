@@ -25,6 +25,10 @@ class AbstractCommand extends Command
 
     const FILE_READ_ARRAY = true;
 
+    const DIR_RESOURCES = '/../Resources/';
+    const DIR_TEMPLATES = 'templates/';
+    const DIR_SETS = 'sets/';
+
     /** @var \Symfony\Component\Console\Style\SymfonyStyle */
     protected $style;
 
@@ -96,6 +100,8 @@ class AbstractCommand extends Command
 
     /**
      * @param \GuzzleHttp\Exception\RequestException $e
+     *
+     * @throws \GuzzleHttp\Exception\RequestException
      */
     protected function handleRequestException(RequestException $e)
     {
@@ -104,6 +110,8 @@ class AbstractCommand extends Command
             $this->style->warning('Wrong password, enter the correct password.');
 
             $this->enterPassword();
+
+            return;
         }
 
         if (strpos($e->getMessage(), '403 Forbidden') > 0) {
@@ -112,6 +120,8 @@ class AbstractCommand extends Command
 
             exit;
         }
+
+        throw $e;
     }
 
     /**
@@ -120,9 +130,9 @@ class AbstractCommand extends Command
      *
      * @throws \InvalidArgumentException
      *
-     * @return string
+     * @return string|array
      */
-    protected function getFileContent(string $fullPath, $readInArray = false): string
+    protected function getFileContent(string $fullPath, $readInArray = false)
     {
         if (!file_exists($fullPath)) {
             throw new \InvalidArgumentException(sprintf('File %s does not exist', $fullPath));

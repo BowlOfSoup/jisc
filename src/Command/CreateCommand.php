@@ -4,11 +4,13 @@ namespace Jisc\Command;
 
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\RequestException;
+use Symfony\Component\Console\Helper\ProgressBar;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
+use Symfony\Component\Console\Question\ChoiceQuestion;
 use Symfony\Component\Console\Question\ConfirmationQuestion;
-use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\Finder\Finder;
 
 class CreateCommand extends AbstractCommand
 {
@@ -48,24 +50,61 @@ class CreateCommand extends AbstractCommand
     private function createSubTasks()
     {
         $subTasks = array();
-        $responseStatusCode = null;
+        $requestSuccess = false;
 
-        if (null !== $this->input->getOption(static::OPTION_SINGLE_TASK)) {
+        $hasOptionForSingleTask = (null !== $this->input->getOption(static::OPTION_SINGLE_TASK));
+        if ($hasOptionForSingleTask) {
             $subTasks[] = $this->input->getOption(static::OPTION_SINGLE_TASK);
+        } else {
+            $this->line();
+            $question = new ChoiceQuestion('Select a task set: ', $this->getTaskFiles(), 0);
+            $question->setMultiselect(true);
+
+            $taskSets = $this->helper->ask($this->input, $this->output, $question);
+
+            foreach ($taskSets as $taskSet) {
+                $this->style->writeln(
+                    PHP_EOL . sprintf(
+                        'Making sub-tasks for <info>%s</info> with task-set: <info>%s</info>.',
+                        $this->input->getOption(static::OPTION_STORY),
+                        $taskSet
+                    )
+                );
+
+                $subTasks = $this->getFileContent(__DIR__ . static::DIR_RESOURCES . static::DIR_SETS . $taskSet, static::FILE_READ_ARRAY);
+            }
         }
 
-        while (Response::HTTP_UNAUTHORIZED === $responseStatusCode || null === $responseStatusCode) {
-            $responseStatusCode = $this->makeRequests($subTasks);
+        while (!$requestSuccess) {
+            $requestSuccess = $this->makeRequests($subTasks);
         }
 
-        $this->line();
         $this->style->success('Sub-task(s) created');
 
-        if (!$this->helper->ask($this->input, $this->output, new ConfirmationQuestion('Create another task? [y/N]: ', false, '/^(y|j)/i'))) {
+        if ($hasOptionForSingleTask ||
+            !$this->helper->ask($this->input, $this->output, new ConfirmationQuestion('Create more tasks? [y/N]: ', false, '/^(y|j)/i'))
+        ) {
             return;
         }
 
         $this->reset();
+    }
+
+    /**
+     * @return array
+     */
+    private function getTaskFiles(): array
+    {
+        $taskFiles = [];
+
+        $finder = new Finder();
+        $finder->files()->in(__DIR__ . static::DIR_RESOURCES . static::DIR_SETS);
+
+        foreach ($finder as $file) {
+            $taskFiles[] = $file->getFileName();
+        }
+
+        return $taskFiles;
     }
 
     /**
@@ -78,21 +117,29 @@ class CreateCommand extends AbstractCommand
         $responseStatusCode = null;
         $client = new Client();
 
+        $progressBar = new ProgressBar($this->output, count($subTasks));
+        $progressBar->start();
+
         foreach ($subTasks as $subTaskString) {
             try {
-                $response = $client->request('POST', getenv('JIRA_URL') . $this->fullCreateUri, [
+                $client->request('POST', getenv('JIRA_URL') . $this->fullCreateUri, [
                     static::REQUEST_AUTH => $this->getAuth(),
                     static::REQUEST_HEADERS => $this->getHeaders(),
                     static::REQUEST_BODY => $this->preparePayload($subTaskString)
                 ]);
 
-                $responseStatusCode = $response->getStatusCode();
+                $progressBar->advance();
             } catch (RequestException $e) {
                 $this->handleRequestException($e);
+
+                return false;
             }
         }
 
-        return $responseStatusCode;
+        $progressBar->finish();
+        $this->line();
+
+        return true;
     }
 
     /**
@@ -102,7 +149,9 @@ class CreateCommand extends AbstractCommand
      */
     private function preparePayload(string $subTaskString): string
     {
-        $payload = $this->getFileContent(__DIR__ . '/../Resources/templates/createSubTaskPayload.json');
+        $payload = $this->getFileContent(__DIR__ . static::DIR_RESOURCES . static::DIR_TEMPLATES . 'createSubTaskPayload.json');
+
+        $subTaskString = preg_replace('/\r|\n/', '', $subTaskString);
 
         $payload = str_replace('%PK%', $this->input->getOption(static::OPTION_PROJECT_KEY), $payload);
         $payload = str_replace('%PARENTSTORY%', $this->input->getOption(static::OPTION_STORY), $payload);
@@ -117,11 +166,10 @@ class CreateCommand extends AbstractCommand
     {
         $suggestedStory = $this->input->getOption(static::OPTION_STORY);
 
-        $this->line();
-
         $this->input->setOption(static::OPTION_STORY, null);
         $this->input->setOption(static::OPTION_PROJECT_KEY, null);
 
+        $this->line();
         $this->enterTaskDetails($suggestedStory);
         $this->createSubTasks();
     }
