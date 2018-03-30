@@ -11,6 +11,10 @@ Clone the repository to a directory by your choosing.
 
     git clone https://github.com/BowlOfSoup/jisc.git directory
 
+Set your environment variables; Edit the `.env` file! Go into your cloned directory and run:
+
+    cp .env.dist .env
+
 To make the script accessible form anywhere, go into your cloned directory and run:
 
     echo "PATH=\$PATH:`pwd`/jisc" >> ~/.bash_profile && . ~/.bash_profile
