@@ -55,48 +55,15 @@ class CreateCommand extends AbstractCommand
 
     private function createSubTasks()
     {
-        $subTasks = array();
         $requestSuccess = false;
 
         $hasOptionForSingleTask = (null !== $this->input->getOption(static::OPTION_SINGLE_TASK));
         if ($hasOptionForSingleTask) {
-            // Handle a single task.
+            // Get a single task.
             $subTasks[] = $this->input->getOption(static::OPTION_SINGLE_TASK);
         } else {
-            $taskSets = array();
-
-            $taskSetFileFromOption = $this->input->getOption(static::OPTION_FILE_SET);
-            if (null !== $taskSetFileFromOption) {
-                // A given file with a set of tasks.
-                $taskSets[] = $taskSetFileFromOption;
-            } else {
-                $this->line();
-
-                // Choose a file with a set of tasks.
-                $question = new ChoiceQuestion('Select a task set: ', $this->getTaskFiles(), 0);
-                $question->setMultiselect(true);
-
-                $taskSets = $this->helper->ask($this->input, $this->output, $question);
-            }
-
-            foreach ($taskSets as $taskSet) {
-                $this->style->writeln(
-                    PHP_EOL . sprintf(
-                        'Making sub-tasks for <info>%s</info> with task-set: <info>%s</info>.',
-                        $this->input->getOption(static::OPTION_STORY),
-                        $taskSet
-                    )
-                );
-
-                $defaultTaskSetDir = __DIR__ . static::DIR_RESOURCES . static::DIR_SETS;
-                if (file_exists($_SERVER['HOME'] . static::DIR_USER_SETS . $taskSet)) {
-                    $defaultTaskSetDir = $_SERVER['HOME'] . static::DIR_USER_SETS;
-                }
-
-                $subTasks = $this->getFileContent($defaultTaskSetDir . $taskSet, static::FILE_READ_ARRAY);
-                $subTasks = $this->filterSubTasks($subTasks);
-                $this->line();
-            }
+            // Get multiple sub-tasks.
+            $subTasks = $this->getMultipleSubTasks();
         }
 
         while (!$requestSuccess) {
@@ -117,16 +84,60 @@ class CreateCommand extends AbstractCommand
     /**
      * @return array
      */
+    private function getMultipleSubTasks(): array
+    {
+        $subTasks = array();
+
+        $taskSetFileFromOption = $this->input->getOption(static::OPTION_FILE_SET);
+        if (null !== $taskSetFileFromOption) {
+            // A file, given via option, with a set of tasks.
+            $taskSets[] = $taskSetFileFromOption;
+        } else {
+            $this->line();
+
+            // Choose a file with a set of tasks.
+            $question = new ChoiceQuestion('Select a task set: ', $this->getTaskFiles(), 0);
+            $question->setMultiselect(true);
+
+            $taskSets = $this->helper->ask($this->input, $this->output, $question);
+        }
+
+        foreach ($taskSets as $taskSet) {
+            $this->style->writeln(
+                PHP_EOL . sprintf(
+                    'Making sub-tasks for <info>%s</info> with task-set: <info>%s</info>.',
+                    $this->input->getOption(static::OPTION_STORY),
+                    $taskSet
+                )
+            );
+
+            $defaultTaskSetDir = __DIR__ . static::DIR_RESOURCES . static::DIR_SETS;
+            if (file_exists($_SERVER['HOME'] . static::DIR_USER_SETS . $taskSet)) {
+                $defaultTaskSetDir = $_SERVER['HOME'] . static::DIR_USER_SETS;
+            }
+
+            $subTasks = $this->getFileContent($defaultTaskSetDir . $taskSet, static::FILE_READ_ARRAY);
+            $subTasks = $this->filterSubTasks($subTasks);
+        }
+
+        return $subTasks;
+    }
+
+    /**
+     * @return array
+     */
     private function getTaskFiles(): array
     {
         $taskFiles = [];
-
         $finder = new Finder();
-        $finder->files()->in(__DIR__ . static::DIR_RESOURCES . static::DIR_SETS);
 
+        $finder->files()->in(__DIR__ . static::DIR_RESOURCES . static::DIR_SETS);
+        $finder->files()->in($_SERVER['HOME'] . static::DIR_USER_SETS);
         foreach ($finder as $file) {
             $taskFiles[] = $file->getFileName();
         }
+
+        sort($taskFiles);
 
         return $taskFiles;
     }
@@ -157,6 +168,7 @@ class CreateCommand extends AbstractCommand
         $responseStatusCode = null;
         $client = new Client();
 
+        $this->line();
         $progressBar = new ProgressBar($this->output, count($subTasks));
         $progressBar->start();
 
