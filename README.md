@@ -46,11 +46,19 @@ Each line in that file should contain a sub-task.
 Examples:
 - Create a single sub-task.
 ```
-bin/console subtask:create -t title_for_the_task -u jira_username -p jira_password -s story_number -k project_key
+jisc subtask:create -t title_for_the_task -u jira_username -p jira_password -s story_number -k project_key
 ```
 
 - Create sub-tasks from a pre-defined set.
 
 ```
-bin/console subtask:create -f file_name_with_a_set_of_tasks
+jisc subtask:create -f file_name_with_a_set_of_tasks
 ```
+
+- Don't pass any optjons.
+```
+jisc subtask:create
+```
+
+You will now be able to choose a task-set manually.
+**Pro-tip!** You can multi-select the options! Just type for example `1,3`.
