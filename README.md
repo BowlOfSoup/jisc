@@ -55,7 +55,7 @@ jisc subtask:create -t title_for_the_task -u jira_username -p jira_password -s s
 jisc subtask:create -f file_name_with_a_set_of_tasks
 ```
 
-- Don't pass any optjons.
+- Don't pass any options.
 ```
 jisc subtask:create
 ```
