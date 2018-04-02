@@ -90,7 +90,7 @@ class CreateCommand extends AbstractCommand
      */
     private function getMultipleSubTasks(): array
     {
-        $subTasks = array();
+        $subTasks = [];
 
         $taskSetFileFromOption = $this->input->getOption(static::OPTION_FILE_SET);
         if (null !== $taskSetFileFromOption) {
@@ -180,7 +180,6 @@ class CreateCommand extends AbstractCommand
     private function makeRequests(array $subTasks): string
     {
         $responseStatusCode = null;
-
 
         $this->line();
         $progressBar = new ProgressBar($this->output, count($subTasks));
