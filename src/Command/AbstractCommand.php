@@ -3,14 +3,14 @@
 namespace Jisc\Command;
 
 use GuzzleHttp\Exception\RequestException;
+use Jisc\Service\RequestService;
+use Jisc\Service\SystemService;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Question\Question;
 use Symfony\Component\Console\Style\SymfonyStyle;
-use Symfony\Component\Process\Process;
-use Symfony\Component\Process\Exception\ProcessFailedException;
 
 class AbstractCommand extends Command
 {
@@ -19,15 +19,15 @@ class AbstractCommand extends Command
     const OPTION_STORY = 'story';
     const OPTION_PROJECT_KEY = 'key';
 
-    const REQUEST_AUTH = 'auth';
-    const REQUEST_HEADERS = 'headers';
-    const REQUEST_BODY = 'body';
-
-    const FILE_READ_ARRAY = true;
-
     const DIR_RESOURCES = '/../Resources/';
     const DIR_TEMPLATES = 'templates/';
     const DIR_SETS = 'sets/';
+
+    /** @var \Jisc\Service\SystemService */
+    protected $systemService;
+
+    /** @var \Jisc\Service\RequestService */
+    protected $requestService;
 
     /** @var \Symfony\Component\Console\Style\SymfonyStyle */
     protected $style;
@@ -40,6 +40,20 @@ class AbstractCommand extends Command
 
     /** @var \Symfony\Component\Console\Output\OutputInterface */
     protected $output;
+
+    /**
+     * @param \Jisc\Service\SystemService $systemService
+     * @param \Jisc\Service\RequestService $requestService
+     */
+    public function __construct(
+        SystemService $systemService,
+        RequestService $requestService
+    ) {
+        parent::__construct();
+
+        $this->systemService = $systemService;
+        $this->requestService = $requestService;
+    }
 
     /**
      * @param \Symfony\Component\Console\Input\InputInterface $input
@@ -77,12 +91,17 @@ class AbstractCommand extends Command
         $this->handleInput();
     }
 
+    /**
+     * Write an empty line to the output.
+     */
     protected function line()
     {
         $this->output->write(PHP_EOL);
     }
 
     /**
+     * Get authentication key/value from user input.
+     *
      * @return array
      */
     protected function getAuth(): array
@@ -91,14 +110,8 @@ class AbstractCommand extends Command
     }
 
     /**
-     * @return array
-     */
-    protected function getHeaders(): array
-    {
-        return ['Content-Type' => 'application/json'];
-    }
-
-    /**
+     * Handle generic Jira Exceptions.
+     *
      * @param \GuzzleHttp\Exception\RequestException $e
      *
      * @throws \GuzzleHttp\Exception\RequestException
@@ -125,28 +138,10 @@ class AbstractCommand extends Command
     }
 
     /**
-     * @param string $fullPath
-     * @param bool $readInArray
+     * User input; Password.
      *
-     * @throws \InvalidArgumentException
-     *
-     * @return string|array
+     * Needs to be called separately once when starting script and when entered password was wrong according to Jira.
      */
-    protected function getFileContent(string $fullPath, $readInArray = false)
-    {
-        if (!file_exists($fullPath)) {
-            throw new \InvalidArgumentException(sprintf('File %s does not exist', $fullPath));
-        }
-
-        if ($readInArray) {
-            $content = file_get_contents($fullPath);
-
-            return explode("\n", $content);
-        }
-
-        return file_get_contents($fullPath);
-    }
-
     protected function enterPassword()
     {
         $question = new Question('Jira password: ');
@@ -157,6 +152,10 @@ class AbstractCommand extends Command
     }
 
     /**
+     * User input; task related questions, story number and project key.
+     *
+     * Needs to be called separately once when starting script and when wanting to add more sub-tasks for a specific story.
+     *
      * @param string|null $suggestedStory
      */
     protected function enterTaskDetails(string $suggestedStory = null)
@@ -182,9 +181,12 @@ class AbstractCommand extends Command
         }
     }
 
+    /**
+     * Initialization method to start-up the questioning when starting script.
+     */
     private function handleInput()
     {
-        $systemUser = trim($this->runCommand('whoami'));
+        $systemUser = trim($this->systemService->runCommand('whoami'));
 
         while (null === $this->input->getOption(static::OPTION_USER)) {
             $this->input->setOption(
@@ -198,24 +200,5 @@ class AbstractCommand extends Command
         }
 
         $this->enterTaskDetails();
-    }
-
-    /**
-     * @param string $command
-     *
-     * @throws \Symfony\Component\Process\Exception\ProcessFailedException
-     *
-     * @return string
-     */
-    private function runCommand(string $command): string
-    {
-        $process = new Process($command);
-        $process->run();
-
-        if (!$process->isSuccessful()) {
-            throw new ProcessFailedException($process);
-        }
-
-        return $process->getOutput();
     }
 }

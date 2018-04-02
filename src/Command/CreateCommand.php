@@ -2,8 +2,9 @@
 
 namespace Jisc\Command;
 
-use GuzzleHttp\Client;
 use GuzzleHttp\Exception\RequestException;
+use Jisc\Service\RequestService;
+use Jisc\Service\SystemService;
 use Symfony\Component\Console\Helper\ProgressBar;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
@@ -11,6 +12,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Question\ChoiceQuestion;
 use Symfony\Component\Console\Question\ConfirmationQuestion;
 use Symfony\Component\Finder\Finder;
+use Symfony\Component\HttpFoundation\Request;
 
 class CreateCommand extends AbstractCommand
 {
@@ -20,9 +22,6 @@ class CreateCommand extends AbstractCommand
     const DIR_USER_SETS = '/.jisc/';
 
     const CONFIRMATION_REGEX_YES = '/^(y|j)/i';
-
-    /** @var string */
-    private $fullCreateUri = '/rest/api/2/issue/';
 
     protected function configure()
     {
@@ -53,6 +52,9 @@ class CreateCommand extends AbstractCommand
         $this->createSubTasks();
     }
 
+    /**
+     * Wrapper method to make distinction between adding one or multiple sub-tasks, and actually adding them.
+     */
     private function createSubTasks()
     {
         $requestSuccess = false;
@@ -82,6 +84,8 @@ class CreateCommand extends AbstractCommand
     }
 
     /**
+     * Possibility to make a selection for which sub-task SET(S) the user wants to add.
+     *
      * @return array
      */
     private function getMultipleSubTasks(): array
@@ -116,7 +120,7 @@ class CreateCommand extends AbstractCommand
                 $defaultTaskSetDir = $_SERVER['HOME'] . static::DIR_USER_SETS;
             }
 
-            $subTasks = $this->getFileContent($defaultTaskSetDir . $taskSet, static::FILE_READ_ARRAY);
+            $subTasks = $this->systemService->getFileContent($defaultTaskSetDir . $taskSet, SystemService::FILE_READ_ARRAY);
             $subTasks = $this->filterSubTasks($subTasks);
         }
 
@@ -124,6 +128,10 @@ class CreateCommand extends AbstractCommand
     }
 
     /**
+     * Get file names of the sub-tasks files.
+     *
+     * Can be the stock task sets, or user defined.
+     *
      * @return array
      */
     private function getTaskFiles(): array
@@ -143,6 +151,10 @@ class CreateCommand extends AbstractCommand
     }
 
     /**
+     * Possibility to decide per chosen sub-task set which sub-tasks actually need to be added.
+     *
+     * Like a filter on the chosen set.
+     *
      * @param array $subTasks
      *
      * @return array
@@ -159,6 +171,8 @@ class CreateCommand extends AbstractCommand
     }
 
     /**
+     * Make the actual request per sub-task to be created.
+     *
      * @param array $subTasks
      *
      * @return string
@@ -166,7 +180,7 @@ class CreateCommand extends AbstractCommand
     private function makeRequests(array $subTasks): string
     {
         $responseStatusCode = null;
-        $client = new Client();
+
 
         $this->line();
         $progressBar = new ProgressBar($this->output, count($subTasks));
@@ -174,11 +188,15 @@ class CreateCommand extends AbstractCommand
 
         foreach ($subTasks as $subTaskString) {
             try {
-                $client->request('POST', getenv('JIRA_URL') . $this->fullCreateUri, [
-                    static::REQUEST_AUTH => $this->getAuth(),
-                    static::REQUEST_HEADERS => $this->getHeaders(),
-                    static::REQUEST_BODY => $this->preparePayload($subTaskString)
-                ]);
+                $this->requestService->httpRequest(
+                    Request::METHOD_POST,
+                    getenv('JIRA_URL') . RequestService::JIRA_CREATE_URI,
+                    [
+                        RequestService::REQUEST_AUTH => $this->getAuth(),
+                        RequestService::REQUEST_HEADERS => RequestService::HEADERS_DEFAULT,
+                        RequestService::REQUEST_BODY => $this->preparePayload($subTaskString),
+                    ]
+                );
 
                 $progressBar->advance();
             } catch (RequestException $e) {
@@ -195,13 +213,15 @@ class CreateCommand extends AbstractCommand
     }
 
     /**
+     * Replace placeholder values for the payload needed to make a create sub-tasks request to Jira.
+     *
      * @param string $subTaskString
      *
      * @return string
      */
     private function preparePayload(string $subTaskString): string
     {
-        $payload = $this->getFileContent(__DIR__ . static::DIR_RESOURCES . static::DIR_TEMPLATES . 'createSubTaskPayload.json');
+        $payload = $this->systemService->getFileContent(__DIR__ . static::DIR_RESOURCES . static::DIR_TEMPLATES . 'createSubTaskPayload.json');
 
         $payload = str_replace('%PK%', $this->input->getOption(static::OPTION_PROJECT_KEY), $payload);
         $payload = str_replace('%PARENTSTORY%', $this->input->getOption(static::OPTION_STORY), $payload);
@@ -212,6 +232,9 @@ class CreateCommand extends AbstractCommand
         return $payload;
     }
 
+    /**
+     * Reset the script to make it possible for the user to add different sub-tasks to different stories.
+     */
     private function reset()
     {
         $suggestedStory = $this->input->getOption(static::OPTION_STORY);
