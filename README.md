@@ -15,6 +15,10 @@ Set your environment variables; Edit the `.env` file! Go into your cloned direct
 
     cp .env.dist .env
 
+Install all dependencies.
+
+    composer install --no-dev
+
 To make the script accessible form anywhere, go into your cloned directory and run:
 
     echo "PATH=\$PATH:`pwd`/jisc" >> ~/.bash_profile && . ~/.bash_profile
