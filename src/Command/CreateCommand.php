@@ -140,7 +140,9 @@ class CreateCommand extends AbstractCommand
         $finder = new Finder();
 
         $finder->files()->in(__DIR__ . static::DIR_RESOURCES . static::DIR_SETS);
-        $finder->files()->in($_SERVER['HOME'] . static::DIR_USER_SETS);
+        if (is_dir($_SERVER['HOME'] . static::DIR_USER_SETS)) {
+            $finder->files()->in($_SERVER['HOME'] . static::DIR_USER_SETS);
+        }
         foreach ($finder as $file) {
             $taskFiles[] = $file->getFileName();
         }
