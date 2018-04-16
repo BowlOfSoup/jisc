@@ -21,7 +21,7 @@ Install all dependencies.
 
 To make the script accessible form anywhere, go into your cloned directory and run:
 
-    echo "PATH=\$PATH:`pwd`/jisc" >> ~/.bash_profile && . ~/.bash_profile
+    echo "PATH=\$PATH:`pwd`" >> ~/.bash_profile && . ~/.bash_profile
 
 Depending on your settings, use `~/.bashrc` or `~/.bash_profile`. (**on MacOS**, choose `~/.bashrc`).
 
