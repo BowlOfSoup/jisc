@@ -16,6 +16,7 @@ use Symfony\Component\HttpFoundation\Request;
 
 class CreateCommand extends AbstractCommand
 {
+    const ARGUMENT_SKIP_CONFIRMATION = 'skip-confirmation';
     const OPTION_SINGLE_TASK = 'task';
     const OPTION_FILE_SET = 'file';
 
@@ -35,6 +36,7 @@ class CreateCommand extends AbstractCommand
         $this
             ->addOption(static::OPTION_SINGLE_TASK, 't', InputOption::VALUE_OPTIONAL, 'Add this single task to given story.')
             ->addOption(static::OPTION_FILE_SET, 'f', InputOption::VALUE_OPTIONAL, '(Only) the filename for a file containing sub-tasks with one task per line.')
+            ->addOption(static::ARGUMENT_SKIP_CONFIRMATION, '!', InputOption::VALUE_NONE, 'If specified, no confirmation is needed when creating subtasks.')
         ;
     }
 
@@ -167,6 +169,10 @@ class CreateCommand extends AbstractCommand
         return array_filter($subTasks, function($subTask) {
             if (empty($subTask)) {
                 return false;
+            }
+
+            if ($this->input->hasOption(static::ARGUMENT_SKIP_CONFIRMATION)) {
+                return true;
             }
 
             return $this->helper->ask($this->input, $this->output, new ConfirmationQuestion($subTask . ' [Y/n]: ', true, static::CONFIRMATION_REGEX_YES));
