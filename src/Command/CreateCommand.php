@@ -171,7 +171,7 @@ class CreateCommand extends AbstractCommand
                 return false;
             }
 
-            if ($this->input->hasOption(static::ARGUMENT_SKIP_CONFIRMATION)) {
+            if ($this->input->getOption(static::ARGUMENT_SKIP_CONFIRMATION)) {
                 return true;
             }
 
