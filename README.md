@@ -48,6 +48,7 @@ Run `jisc subtask:create` with the following optional options:
 -k, --key[=KEY]            Project key for story.
 -t, --task[=TASK]          Add this single task to given story.
 -f, --file[=FILE]          (Only) the filename for a file containing sub-tasks with one task per line.
+-!, --skip-confirmation    If specified, no confirmation is needed when creating subtasks.
 -h, --help                 Display this help message
 ```
 
