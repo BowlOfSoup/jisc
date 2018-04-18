@@ -23,10 +23,10 @@ To make the script accessible form anywhere, go into your cloned directory and r
 
     echo "PATH=\$PATH:`pwd`" >> ~/.bash_profile && . ~/.bash_profile
 
-Depending on your settings, use `~/.bashrc` or `~/.bash_profile`. (**on MacOS**, choose `~/.bashrc`).
+Depending on your settings, use `~/.bashrc` or `~/.bash_profile`.
 
 
-#### Alternative way of install (linux specific)
+#### Alternative way of install (*nix specific)
 
 ```
 sudo cp -R /path/to/cloned/jisc /opt/
