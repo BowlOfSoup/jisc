@@ -91,6 +91,7 @@ class CreateCommand extends AbstractCommand
     private function getMultipleSubTasks(): array
     {
         $subTasks = [];
+        $mergedSetOfSubTasks = [];
 
         $taskSetFileFromOption = $this->input->getOption(static::OPTION_FILE_SET);
         if (null !== $taskSetFileFromOption) {
@@ -121,10 +122,10 @@ class CreateCommand extends AbstractCommand
             }
 
             $subTasks = $this->systemService->getFileContent($defaultTaskSetDir . $taskSet, SystemService::FILE_READ_ARRAY);
-            $subTasks = $this->filterSubTasks($subTasks);
+            $mergedSetOfSubTasks = array_merge($this->filterSubTasks($subTasks), $mergedSetOfSubTasks);
         }
 
-        return $subTasks;
+        return $mergedSetOfSubTasks;
     }
 
     /**
